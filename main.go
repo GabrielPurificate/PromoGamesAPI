@@ -8,7 +8,10 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/nedpals/supabase-go"
 	"github.com/rs/cors"
+
+	"github.com/GabrielPurificate/PromoGamesAPI/api"
 )
 
 func main() {
@@ -27,15 +30,19 @@ func main() {
 		log.Fatal("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
 	}
 
+	client := supabase.CreateClient(supabaseUrl, supabaseKey)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "online",
-			"msg":    "API PostPanel rodando com sucesso",
+			"msg":    "API PostPanel rodando",
 		})
 	})
+
+	mux.HandleFunc("/gerar-preview", api.HandlerGerarPreview(client))
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
