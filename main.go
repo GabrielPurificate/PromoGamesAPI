@@ -34,6 +34,8 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/ping", api.HandlerPing)
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{

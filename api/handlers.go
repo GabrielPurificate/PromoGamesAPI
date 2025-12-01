@@ -56,13 +56,38 @@ func HandlerGerarPreview(client *supabase.Client) http.HandlerFunc {
 	}
 }
 
+func HandlerPing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	resp := map[string]string{
+		"status": "ok",
+		"msg":    "pong",
+	}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
 func formatarMensagemZap(p models.PromoRequest) string {
 	msg := fmt.Sprintf("%s\n\n", p.Nome)
 
-	msg += fmt.Sprintf("💰 R$ %s no PIX\n", p.Valor)
+	tipoPag := "no PIX"
+	if p.TipoPagamento != "" {
+		tipoPag = p.TipoPagamento
+	}
 
-	if p.Parcelamento != "" {
-		msg += fmt.Sprintf("💳 %s\n", p.Parcelamento)
+	if p.TipoPagamento == "NORMAL" {
+		msg += fmt.Sprintf("💰 R$ %s\n", p.Valor)
+	} else {
+		msg += fmt.Sprintf("💰 R$ %s %s\n", p.Valor, tipoPag)
+	}
+
+	if p.Parcelas > 0 {
+		jurosTexto := "sem juros"
+		if p.TemJuros {
+			jurosTexto = "com juros"
+		}
+
+		msg += fmt.Sprintf("💳 Ou em até %dx de R$ %s %s\n", p.Parcelas, p.ValorParcela, jurosTexto)
 	}
 
 	if p.Cupom != "" {
