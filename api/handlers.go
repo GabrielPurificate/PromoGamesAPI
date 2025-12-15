@@ -83,11 +83,9 @@ func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// CHAMADA NOVA:
 	respostaTelegram, err := EnviarParaTelegram(dados.Imagem, dados.Texto)
 
 	if err != nil {
-		// AQUI ESTÁ A MÁGICA: O erro vai aparecer no Alert do navegador
 		http.Error(w, "FALHA: "+err.Error()+" || RESPOSTA TELEGRAM: "+respostaTelegram, http.StatusInternalServerError)
 		return
 	}
@@ -100,7 +98,6 @@ func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
 }
 
 func formatarMensagemZap(p models.PromoRequest) string {
-	// TÍTULO EM NEGRITO
 	msg := fmt.Sprintf("🔥 <b>%s</b>\n\n", p.Nome)
 
 	tipoPag := "no PIX"
@@ -108,7 +105,6 @@ func formatarMensagemZap(p models.PromoRequest) string {
 		tipoPag = p.TipoPagamento
 	}
 
-	// PREÇO EM NEGRITO
 	if p.TipoPagamento == "NORMAL" {
 		msg += fmt.Sprintf("💰 <b>R$ %s</b>\n", p.Valor)
 	} else {
@@ -123,7 +119,6 @@ func formatarMensagemZap(p models.PromoRequest) string {
 		msg += fmt.Sprintf("💳 Ou em até %dx de R$ %s %s\n", p.Parcelas, p.ValorParcela, jurosTexto)
 	}
 
-	// CUPOM COMO CÓDIGO (MONOESPAÇADO)
 	if p.Cupom != "" {
 		msg += fmt.Sprintf("🎟 CUPOM: <code>%s</code>\n", p.Cupom)
 	}
@@ -134,7 +129,6 @@ func formatarMensagemZap(p models.PromoRequest) string {
 		msg += fmt.Sprintf("\n🏪 Loja: %s\n", strings.ToUpper(p.Loja))
 	}
 
-	// TEXTO FINAL EM NEGRITO
 	msg += fmt.Sprintf("\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com")
 
 	return msg
