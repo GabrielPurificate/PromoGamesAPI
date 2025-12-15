@@ -29,10 +29,10 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", token)
 
 	payload := TelegramPhotoPayload{
-		ChatID:    chatID,
-		Photo:     imagemURL,
-		Caption:   textoLegenda,
-		ParseMode: "Markdown",
+		ChatID:  chatID,
+		Photo:   imagemURL,
+		Caption: textoLegenda,
+		//ParseMode: "Markdown",
 	}
 
 	jsonPayload, err := json.Marshal(payload)
