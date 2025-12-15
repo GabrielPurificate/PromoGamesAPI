@@ -45,6 +45,7 @@ func main() {
 	})
 
 	mux.HandleFunc("/gerar-preview", api.HandlerGerarPreview(client))
+	http.HandleFunc("/enviar-telegram", api.HandlerEnviarTelegram)
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},

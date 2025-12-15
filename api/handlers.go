@@ -67,6 +67,34 @@ func HandlerPing(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var dados struct {
+		Texto  string `json:"texto"`
+		Imagem string `json:"imagem"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&dados); err != nil {
+		http.Error(w, "Erro ao ler JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Chama a função que está no telegram.go
+	err := EnviarParaTelegram(dados.Imagem, dados.Texto)
+	if err != nil {
+		http.Error(w, "Erro ao enviar pro Telegram: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "sucesso", "msg": "Enviado para o canal!"})
+}
+
 func formatarMensagemZap(p models.PromoRequest) string {
 	msg := fmt.Sprintf("%s\n\n", p.Nome)
 
