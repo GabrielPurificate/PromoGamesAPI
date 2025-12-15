@@ -32,8 +32,10 @@ func main() {
 
 	client := supabase.CreateClient(supabaseUrl, supabaseKey)
 
+	// Cria o roteador
 	mux := http.NewServeMux()
 
+	// Rotas Básicas
 	mux.HandleFunc("/ping", api.HandlerPing)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -44,9 +46,14 @@ func main() {
 		})
 	})
 
+	// Rotas da Aplicação
 	mux.HandleFunc("/gerar-preview", api.HandlerGerarPreview(client))
-	http.HandleFunc("/enviar-telegram", api.HandlerEnviarTelegram)
 
+	// --- CORREÇÃO AQUI ---
+	// Use 'mux.' em vez de 'http.' para o CORS funcionar e a rota existir
+	mux.HandleFunc("/enviar-telegram", api.HandlerEnviarTelegram)
+
+	// Configuração do CORS
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

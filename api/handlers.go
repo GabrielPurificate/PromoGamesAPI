@@ -78,35 +78,41 @@ func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
 		Texto  string `json:"texto"`
 		Imagem string `json:"imagem"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&dados); err != nil {
-		http.Error(w, "Erro ao ler JSON", http.StatusBadRequest)
+		http.Error(w, "Erro JSON", http.StatusBadRequest)
 		return
 	}
 
-	// Chama a função que está no telegram.go
-	err := EnviarParaTelegram(dados.Imagem, dados.Texto)
+	// CHAMADA NOVA:
+	respostaTelegram, err := EnviarParaTelegram(dados.Imagem, dados.Texto)
+
 	if err != nil {
-		http.Error(w, "Erro ao enviar pro Telegram: "+err.Error(), http.StatusInternalServerError)
+		// AQUI ESTÁ A MÁGICA: O erro vai aparecer no Alert do navegador
+		http.Error(w, "FALHA: "+err.Error()+" || RESPOSTA TELEGRAM: "+respostaTelegram, http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "sucesso", "msg": "Enviado para o canal!"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "sucesso",
+		"msg":    "Telegram respondeu: " + respostaTelegram,
+	})
 }
 
 func formatarMensagemZap(p models.PromoRequest) string {
-	msg := fmt.Sprintf("%s\n\n", p.Nome)
+	// TÍTULO EM NEGRITO
+	msg := fmt.Sprintf("🔥 <b>%s</b>\n\n", p.Nome)
 
 	tipoPag := "no PIX"
 	if p.TipoPagamento != "" {
 		tipoPag = p.TipoPagamento
 	}
 
+	// PREÇO EM NEGRITO
 	if p.TipoPagamento == "NORMAL" {
-		msg += fmt.Sprintf("💰 R$ %s\n", p.Valor)
+		msg += fmt.Sprintf("💰 <b>R$ %s</b>\n", p.Valor)
 	} else {
-		msg += fmt.Sprintf("💰 R$ %s %s\n", p.Valor, tipoPag)
+		msg += fmt.Sprintf("💰 <b>R$ %s</b> %s\n", p.Valor, tipoPag)
 	}
 
 	if p.Parcelas > 0 {
@@ -114,21 +120,22 @@ func formatarMensagemZap(p models.PromoRequest) string {
 		if p.TemJuros {
 			jurosTexto = "com juros"
 		}
-
 		msg += fmt.Sprintf("💳 Ou em até %dx de R$ %s %s\n", p.Parcelas, p.ValorParcela, jurosTexto)
 	}
 
+	// CUPOM COMO CÓDIGO (MONOESPAÇADO)
 	if p.Cupom != "" {
-		msg += fmt.Sprintf("🎟CUPOM: %s\n", p.Cupom)
+		msg += fmt.Sprintf("🎟 CUPOM: <code>%s</code>\n", p.Cupom)
 	}
 
 	msg += fmt.Sprintf("\n🔗 Link: %s\n", p.Link)
 
 	if p.Loja != "" {
-		msg += fmt.Sprintf("[%s]\n", strings.ToUpper(p.Loja))
+		msg += fmt.Sprintf("\n🏪 Loja: %s\n", strings.ToUpper(p.Loja))
 	}
 
-	msg += fmt.Sprintf("\n🌐 Mais ofertas em: https://promogamesbr.com")
+	// TEXTO FINAL EM NEGRITO
+	msg += fmt.Sprintf("\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com")
 
 	return msg
 }
