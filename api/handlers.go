@@ -98,37 +98,43 @@ func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
 }
 
 func formatarMensagemZap(p models.PromoRequest) string {
-	msg := fmt.Sprintf("🔥 <b>%s</b>\n\n", p.Nome)
+	// TÍTULO EM NEGRITO
+	msg := fmt.Sprintf("<b>%s</b>\n\n", p.Nome)
 
-	tipoPag := "no PIX"
-	if p.TipoPagamento != "" {
-		tipoPag = p.TipoPagamento
-	}
-
-	if p.TipoPagamento == "NORMAL" {
-		msg += fmt.Sprintf("💰 <b>R$ %s</b>\n", p.Valor)
+	// LÓGICA DO PREÇO À VISTA (PIX ou NORMAL)
+	if p.IsPix {
+		// Se marcou o checkbox: "R$ 100,00 no PIX"
+		msg += fmt.Sprintf("💰 <b>R$ %s</b> no PIX\n", p.Valor)
 	} else {
-		msg += fmt.Sprintf("💰 <b>R$ %s</b> %s\n", p.Valor, tipoPag)
+		// Se NÃO marcou: "R$ 100,00" (Apenas o valor seco)
+		// Se quiser escrito "à vista", troque por: "💰 <b>R$ %s</b> à vista\n"
+		msg += fmt.Sprintf("💰 <b>R$ %s</b>\n", p.Valor)
 	}
 
+	// LÓGICA DO PARCELAMENTO
 	if p.Parcelas > 0 {
 		jurosTexto := "sem juros"
 		if p.TemJuros {
 			jurosTexto = "com juros"
 		}
+		// Ex: "💳 Ou em até 10x de R$ 50,00 sem juros"
 		msg += fmt.Sprintf("💳 Ou em até %dx de R$ %s %s\n", p.Parcelas, p.ValorParcela, jurosTexto)
 	}
 
+	// CUPOM
 	if p.Cupom != "" {
 		msg += fmt.Sprintf("🎟 CUPOM: <code>%s</code>\n", p.Cupom)
 	}
 
+	// LINK
 	msg += fmt.Sprintf("\n🔗 Link: %s\n", p.Link)
 
+	// LOJA
 	if p.Loja != "" {
-		msg += fmt.Sprintf("\n🏪 Loja: %s\n", strings.ToUpper(p.Loja))
+		msg += fmt.Sprintf("[%s]\n", strings.ToUpper(p.Loja))
 	}
 
+	// RODAPÉ
 	msg += fmt.Sprintf("\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com")
 
 	return msg

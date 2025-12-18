@@ -1,18 +1,19 @@
 package models
 
 type PromoRequest struct {
-	Nome          string `json:"nome"`
-	Valor         string `json:"valor"`
-	TipoPagamento string `json:"tipo_pagamento"` // Ex: "PIX", "BOLETO", "AVISTA" (padrão PIX)
+	Nome  string `json:"nome"`
+	Valor string `json:"valor"`
+	Loja  string `json:"loja"`
+	Link  string `json:"link"`
+	Cupom string `json:"cupom"`
 
 	// Parcelamento
-	Parcelas     int    `json:"parcelas"`      // Ex: 10
-	ValorParcela string `json:"valor_parcela"` // Ex: "484,25"
-	TemJuros     bool   `json:"tem_juros"`     // true ou false
+	Parcelas     int    `json:"parcelas"`
+	ValorParcela string `json:"valor_parcela"`
+	TemJuros     bool   `json:"tem_juros"`
 
-	Cupom string `json:"cupom"`
-	Link  string `json:"link"`
-	Loja  string `json:"loja"`
+	// --- NOVO CAMPO ---
+	IsPix bool `json:"is_pix"`
 }
 
 type PromoResponse struct {
