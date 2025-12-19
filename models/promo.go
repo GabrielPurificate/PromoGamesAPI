@@ -7,17 +7,15 @@ type PromoRequest struct {
 	Link  string `json:"link"`
 	Cupom string `json:"cupom"`
 
-	// Parcelamento
 	Parcelas     int    `json:"parcelas"`
 	ValorParcela string `json:"valor_parcela"`
 	TemJuros     bool   `json:"tem_juros"`
 
-	// --- NOVO CAMPO ---
 	IsPix bool `json:"is_pix"`
 }
 
 type PromoResponse struct {
 	TextoFormatado string `json:"texto_formatado"`
-	ImagemUrl      string `json:"imagem_url"`
+	ImageUrl       string `json:"image_url"`
 	Found          bool   `json:"found"`
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/GabrielPurificate/PromoGamesAPI/models"
@@ -21,22 +22,23 @@ func HandlerGerarPreview(client *supabase.Client) http.HandlerFunc {
 		}
 
 		slugBusca := gerarSlugSimples(req.Nome)
+		fmt.Printf("🔍 Buscando por slug: [%s]\n", slugBusca)
 
 		var resultados []struct {
-			ImagemUrl string `json:"imagem_url"`
+			ImageUrl string `json:"image_url"`
 		}
 
-		err := client.DB.From("jogos").
+		err := client.DB.From("Jogos").
 			Select("image_url").
 			Limit(1).
-			Filter("slug", "ilike", "%"+slugBusca+"%").
+			Filter("slug", "eq", slugBusca).
 			Execute(&resultados)
 
 		imagemFinal := ""
 		achou := false
 
 		if err == nil && len(resultados) > 0 {
-			imagemFinal = resultados[0].ImagemUrl
+			imagemFinal = resultados[0].ImageUrl
 			achou = true
 		} else {
 			imagemFinal = ""
@@ -47,7 +49,7 @@ func HandlerGerarPreview(client *supabase.Client) http.HandlerFunc {
 
 		resp := models.PromoResponse{
 			TextoFormatado: texto,
-			ImagemUrl:      imagemFinal,
+			ImageUrl:       imagemFinal,
 			Found:          achou,
 		}
 
@@ -98,43 +100,32 @@ func HandlerEnviarTelegram(w http.ResponseWriter, r *http.Request) {
 }
 
 func formatarMensagemZap(p models.PromoRequest) string {
-	// TÍTULO EM NEGRITO
 	msg := fmt.Sprintf("<b>%s</b>\n\n", p.Nome)
 
-	// LÓGICA DO PREÇO À VISTA (PIX ou NORMAL)
 	if p.IsPix {
-		// Se marcou o checkbox: "R$ 100,00 no PIX"
 		msg += fmt.Sprintf("💰 <b>R$ %s</b> no PIX\n", p.Valor)
 	} else {
-		// Se NÃO marcou: "R$ 100,00" (Apenas o valor seco)
-		// Se quiser escrito "à vista", troque por: "💰 <b>R$ %s</b> à vista\n"
 		msg += fmt.Sprintf("💰 <b>R$ %s</b>\n", p.Valor)
 	}
 
-	// LÓGICA DO PARCELAMENTO
 	if p.Parcelas > 0 {
 		jurosTexto := "sem juros"
 		if p.TemJuros {
 			jurosTexto = "com juros"
 		}
-		// Ex: "💳 Ou em até 10x de R$ 50,00 sem juros"
 		msg += fmt.Sprintf("💳 Ou em até %dx de R$ %s %s\n", p.Parcelas, p.ValorParcela, jurosTexto)
 	}
 
-	// CUPOM
 	if p.Cupom != "" {
 		msg += fmt.Sprintf("🎟 CUPOM: <code>%s</code>\n", p.Cupom)
 	}
 
-	// LINK
 	msg += fmt.Sprintf("\n🔗 Link: %s\n", p.Link)
 
-	// LOJA
 	if p.Loja != "" {
 		msg += fmt.Sprintf("[%s]\n", strings.ToUpper(p.Loja))
 	}
 
-	// RODAPÉ
 	msg += fmt.Sprintf("\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com")
 
 	return msg
@@ -142,6 +133,14 @@ func formatarMensagemZap(p models.PromoRequest) string {
 
 func gerarSlugSimples(nome string) string {
 	s := strings.ToLower(nome)
+
+	reg, _ := regexp.Compile("[^a-z0-9\\s]+")
+	s = reg.ReplaceAllString(s, "")
+
 	s = strings.ReplaceAll(s, " ", "-")
+
+	regTraco, _ := regexp.Compile("-+")
+	s = regTraco.ReplaceAllString(s, "-")
+
 	return s
 }
