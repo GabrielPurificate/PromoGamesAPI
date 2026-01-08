@@ -133,14 +133,9 @@ func formatarMensagemZap(p models.PromoRequest) string {
 
 func gerarSlugSimples(nome string) string {
 	s := strings.ToLower(nome)
-
-	reg, _ := regexp.Compile("[^a-z0-9\\s]+")
+	reg, _ := regexp.Compile("[^a-z0-9\\s-]+")
 	s = reg.ReplaceAllString(s, "")
-
 	s = strings.ReplaceAll(s, " ", "-")
-
-	regTraco, _ := regexp.Compile("-+")
-	s = regTraco.ReplaceAllString(s, "-")
 
 	return s
 }
