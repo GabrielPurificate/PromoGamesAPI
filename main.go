@@ -12,6 +12,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/GabrielPurificate/PromoGamesAPI/api"
+	"github.com/GabrielPurificate/PromoGamesAPI/auth"
 )
 
 func main() {
@@ -24,6 +25,10 @@ func main() {
 
 	if port == "" {
 		port = "8080"
+	}
+
+	if os.Getenv("SUPABASE_JWT_SECRET") == "" {
+		log.Println("AVISO: SUPABASE_JWT_SECRET não encontrado. O Middleware de Auth vai falhar se for acionado.")
 	}
 
 	if supabaseUrl == "" || supabaseKey == "" {
@@ -44,9 +49,9 @@ func main() {
 		})
 	})
 
-	mux.HandleFunc("/gerar-preview", api.HandlerGerarPreview(client))
+	mux.HandleFunc("/gerar-preview", auth.MiddlewareJWT(api.HandlerGerarPreview(client)))
 
-	mux.HandleFunc("/enviar-telegram", api.HandlerEnviarTelegram)
+	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram))
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
