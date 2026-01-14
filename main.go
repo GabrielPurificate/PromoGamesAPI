@@ -49,6 +49,13 @@ func main() {
 		})
 	})
 
+	mux.HandleFunc("/check-session", auth.MiddlewareJWT(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{
+			"valid": true,
+		})
+	}))
+
 	mux.HandleFunc("/gerar-preview", auth.MiddlewareJWT(api.HandlerGerarPreview(client)))
 
 	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram))
