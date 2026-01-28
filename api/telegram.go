@@ -57,3 +57,32 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 
 	return respostaTelegram, nil
 }
+
+func EnviarMensagemDM(chatID int64, texto string) error {
+	token := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if token == "" {
+		return fmt.Errorf("token do bot não configurado")
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
+
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"text":       texto,
+		"parse_mode": "Markdown",
+	}
+
+	jsonPayload, _ := json.Marshal(payload)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erro telegram status: %d", resp.StatusCode)
+	}
+
+	return nil
+}

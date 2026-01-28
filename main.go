@@ -58,7 +58,9 @@ func main() {
 
 	mux.HandleFunc("/gerar-preview", auth.MiddlewareJWT(api.HandlerGerarPreview(client)))
 
-	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram))
+	mux.HandleFunc("/webhook/telegram", api.HandlerWebhookTelegram(client))
+
+	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram(client)))
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
