@@ -145,19 +145,20 @@ func gerarSlugSimples(nome string) string {
 }
 
 func extrairDadosDoTexto(textoHTML string) (string, string) {
-	reTitulo := regexp.MustCompile(`<b>(.*?)</b>`)
-	matchTitulo := reTitulo.FindStringSubmatch(textoHTML)
+	linhas := strings.Split(textoHTML, "\n")
 	titulo := ""
-	if len(matchTitulo) > 1 {
-		titulo = matchTitulo[1]
+
+	if len(linhas) > 0 {
+		titulo = linhas[0]
+		titulo = strings.ReplaceAll(titulo, "<b>", "")
+		titulo = strings.ReplaceAll(titulo, "</b>", "")
+		titulo = strings.TrimSpace(titulo)
 	}
 
-	reLink := regexp.MustCompile(`Link: (https?://[^\s]+)`)
-	matchLink := reLink.FindStringSubmatch(textoHTML)
-	link := ""
-	if len(matchLink) > 1 {
-		link = matchLink[1]
-	}
+	reLink := regexp.MustCompile(`https?://[^\s]+`)
+	link := reLink.FindString(textoHTML)
+
+	fmt.Printf("DEBUG EXTRAÇÃO -> Titulo: [%s] | Link: [%s]\n", titulo, link)
 
 	return titulo, link
 }
