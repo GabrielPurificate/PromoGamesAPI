@@ -22,20 +22,33 @@ type TelegramUpdate struct {
 func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var update TelegramUpdate
-
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Erro json", http.StatusBadRequest)
 			return
 		}
 
 		chatID := update.Message.Chat.ID
-		texto := update.Message.Text
+		texto := strings.TrimSpace(update.Message.Text)
+
+		if texto == "/start" || strings.HasPrefix(texto, "/start") {
+			msg := "🤖 *Olá! Sou o Assistente do PromoGames.*\n\n" +
+				"Eu posso te avisar quando aquele jogo que você quer entrar em promoção!\n\n" +
+				"📋 *COMO USAR:*\n" +
+				"• `/desejo Nome do Jogo` → Para criar um alerta.\n" +
+				"• `/lista` → Para ver seus alertas ativos.\n" +
+				"• `/remover Nome do Jogo` → Para parar de receber avisos.\n\n" +
+				"💡 _Exemplo: Digite_ `/desejo God of War`"
+
+			EnviarMensagemDM(chatID, msg)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
 		if strings.HasPrefix(texto, "/desejo") {
 			termo := strings.TrimSpace(strings.Replace(texto, "/desejo", "", 1))
 
 			if len(termo) < 3 {
-				EnviarMensagemDM(chatID, "❌ *Ops!* Digite o nome do jogo.\nExemplo: `/desejo God of War`")
+				EnviarMensagemDM(chatID, "❌ *Ops!* Digite o nome do jogo.\nExemplo: `/desejo Elden Ring`")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -52,10 +65,65 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 				log.Println("Erro ao salvar desejo:", err)
 				EnviarMensagemDM(chatID, "⚠️ Erro ao salvar. Tente novamente.")
 			} else {
-				EnviarMensagemDM(chatID, fmt.Sprintf("✅ *Anotado!* Vou te avisar assim que aparecer promoção de: *%s*", termo))
+				EnviarMensagemDM(chatID, fmt.Sprintf("✅ *Anotado!* Vou te avisar de promoções de: *%s*\n\n(Se comprar, use `/remover %s` para parar de receber)", termo, termo))
 			}
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
+		if strings.HasPrefix(texto, "/lista") {
+			var alertas []struct {
+				TermoBusca string `json:"termo_busca"`
+			}
+
+			err := client.DB.From("alertas_usuario").
+				Select("termo_busca").
+				Filter("telegram_id", "eq", fmt.Sprintf("%d", chatID)).
+				Execute(&alertas)
+
+			if err != nil {
+				EnviarMensagemDM(chatID, "Erro ao buscar sua lista.")
+			} else if len(alertas) == 0 {
+				EnviarMensagemDM(chatID, "📭 Sua lista de desejos está vazia.\nUse `/desejo Nome` para adicionar.")
+			} else {
+				msg := "📝 *SEUS ALERTAS ATIVOS:*\n\n"
+				for _, a := range alertas {
+					msg += fmt.Sprintf("• %s\n", a.TermoBusca)
+				}
+				msg += "\n🗑 Para apagar, use `/remover NomeDoJogo`"
+				EnviarMensagemDM(chatID, msg)
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if strings.HasPrefix(texto, "/remover") {
+			termo := strings.TrimSpace(strings.Replace(texto, "/remover", "", 1))
+
+			if len(termo) < 3 {
+				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: `/remover Fifa 23`")
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			var result interface{}
+			err := client.DB.From("alertas_usuario").
+				Delete().
+				Filter("telegram_id", "eq", fmt.Sprintf("%d", chatID)).
+				Filter("termo_busca", "ilike", termo).
+				Execute(&result)
+
+			if err != nil {
+				log.Println("Erro delete:", err)
+				EnviarMensagemDM(chatID, "Erro ao remover. Verifique se escreveu o nome certo.")
+			} else {
+				EnviarMensagemDM(chatID, fmt.Sprintf("🗑 *%s* removido dos seus alertas!", termo))
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		EnviarMensagemDM(chatID, "❓ Não entendi.\nDigite `/start` para ver as opções.")
 		w.WriteHeader(http.StatusOK)
 	}
 }
