@@ -100,24 +100,48 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 		if strings.HasPrefix(texto, "/remover") {
 			termo := strings.TrimSpace(strings.Replace(texto, "/remover", "", 1))
 
-			if len(termo) < 3 {
-				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: `/remover Fifa 23`")
+			if len(termo) < 2 {
+				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: `/remover God of War`")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
 
-			var result interface{}
+			var busca []struct {
+				ID         string `json:"id"`
+				TermoBusca string `json:"termo_busca"`
+			}
+
 			err := client.DB.From("alertas_usuario").
-				Delete().
+				Select("id, termo_busca").
 				Filter("telegram_id", "eq", fmt.Sprintf("%d", chatID)).
 				Filter("termo_busca", "ilike", termo).
+				Execute(&busca)
+
+			if err != nil {
+				log.Println("Erro busca remover:", err)
+				EnviarMensagemDM(chatID, "⚠️ Erro ao buscar. Tente novamente.")
+				return
+			}
+
+			if len(busca) == 0 {
+				EnviarMensagemDM(chatID, fmt.Sprintf("❌ Não encontrei nenhum alerta exato para: *%s*\n\nUse `/lista` para ver como o nome está salvo.", termo))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			idParaDeletar := busca[0].ID
+			nomeReal := busca[0].TermoBusca
+
+			var result interface{}
+			err = client.DB.From("alertas_usuario").
+				Delete().
+				Filter("id", "eq", idParaDeletar).
 				Execute(&result)
 
 			if err != nil {
-				log.Println("Erro delete:", err)
-				EnviarMensagemDM(chatID, "Erro ao remover. Verifique se escreveu o nome certo.")
+				EnviarMensagemDM(chatID, "Erro ao remover do banco de dados.")
 			} else {
-				EnviarMensagemDM(chatID, fmt.Sprintf("🗑 *%s* removido dos seus alertas!", termo))
+				EnviarMensagemDM(chatID, fmt.Sprintf("🗑 Alerta de *%s* removido com sucesso!", nomeReal))
 			}
 			w.WriteHeader(http.StatusOK)
 			return
