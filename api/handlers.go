@@ -89,10 +89,7 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 			titulo, link := extrairDadosDoTexto(dados.Texto)
 
 			if titulo != "" && link != "" {
-				fmt.Printf("🎯 Wishlist Trigger: Buscando interessados em [%s]\n", titulo)
-				DispararWishlist(client, titulo, link)
-			} else {
-				fmt.Println("⚠️ Não foi possível extrair título/link para Wishlist")
+				DispararWishlist(client, titulo, dados.Imagem, dados.Texto)
 			}
 		}()
 
