@@ -19,8 +19,20 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 
 	payload := make(map[string]interface{})
 	payload["chat_id"] = chatID
-
 	payload["parse_mode"] = "HTML"
+
+	keyboard := map[string]interface{}{
+		"inline_keyboard": [][]map[string]string{
+			{
+				{
+					"text": "🔔 Criar Alerta de Preço",
+					"url":  "https://t.me/PromoGamesBR_bot?start=vim_do_canal",
+				},
+			},
+		},
+	}
+
+	payload["reply_markup"] = keyboard
 
 	var method string
 	if imagemURL != "" {
