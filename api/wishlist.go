@@ -34,15 +34,17 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 
 		chatID := update.Message.Chat.ID
 		texto := strings.TrimSpace(update.Message.Text)
+		textoSafe := strings.ReplaceAll(texto, "<", "")
+		textoSafe = strings.ReplaceAll(textoSafe, ">", "")
 
 		if texto == "/start" || strings.HasPrefix(texto, "/start") {
-			msg := "🤖 *Olá! Sou o Assistente do PromoGames.*\n\n" +
+			msg := "🤖 <b>Olá! Sou o Assistente do PromoGames.</b>\n\n" +
 				"Eu posso te avisar quando aquele jogo que você quer entrar em promoção!\n\n" +
-				"📋 *COMO USAR:*\n" +
-				"• `/desejo Nome do Jogo` → Para criar um alerta.\n" +
-				"• `/lista` → Para ver seus alertas ativos.\n" +
-				"• `/remover Nome do Jogo` → Para parar de receber avisos.\n\n" +
-				"💡 _Exemplo: Digite_ `/desejo God of War`"
+				"📋 <b>COMO USAR:</b>\n" +
+				"• <code>/desejo Nome do Jogo</code> → Para criar um alerta.\n" +
+				"• <code>/lista</code> → Para ver seus alertas ativos.\n" +
+				"• <code>/remover Nome do Jogo</code> → Para parar de receber avisos.\n\n" +
+				"💡 <i>Exemplo: Digite</i> <code>/desejo God of War</code>"
 
 			EnviarMensagemDM(chatID, msg, "")
 			w.WriteHeader(http.StatusOK)
@@ -51,9 +53,11 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 
 		if strings.HasPrefix(texto, "/desejo") {
 			termo := strings.TrimSpace(strings.Replace(texto, "/desejo", "", 1))
+			termo = strings.ReplaceAll(termo, "<", "")
+			termo = strings.ReplaceAll(termo, ">", "")
 
 			if len(termo) < 3 {
-				EnviarMensagemDM(chatID, "❌ *Ops!* Digite o nome do jogo.\nExemplo: `/desejo Elden Ring`", "")
+				EnviarMensagemDM(chatID, "❌ <b>Ops!</b> Digite o nome do jogo.\nExemplo: <code>/desejo Elden Ring</code>", "")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -70,7 +74,7 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 				log.Println("Erro ao salvar desejo:", err)
 				EnviarMensagemDM(chatID, "⚠️ Erro ao salvar. Tente novamente.", "")
 			} else {
-				EnviarMensagemDM(chatID, fmt.Sprintf("✅ *Anotado!* Vou te avisar de promoções de: *%s*\n\n(Se comprar, use `/remover %s` para parar de receber)", termo, termo), "")
+				EnviarMensagemDM(chatID, fmt.Sprintf("✅ <b>Anotado!</b> Vou te avisar de promoções de: <b>%s</b>\n\n(Se comprar, use <code>/remover %s</code> para parar de receber)", termo, termo), "")
 			}
 			w.WriteHeader(http.StatusOK)
 			return
@@ -89,11 +93,11 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 			if err != nil {
 				EnviarMensagemDM(chatID, "Erro ao buscar sua lista.", "")
 			} else if len(alertas) == 0 {
-				EnviarMensagemDM(chatID, "📭 Sua lista de desejos está vazia.\nUse `/desejo Nome` para adicionar.", "")
+				EnviarMensagemDM(chatID, "📭 Sua lista de desejos está vazia.\nUse <code>/desejo Nome</code> para adicionar.", "")
 			} else {
-				msg := "📝 *SEUS ALERTAS ATIVOS:*\n(Clique no comando para copiar)\n\n"
+				msg := "📝 <b>SEUS ALERTAS ATIVOS:</b>\n(Clique no comando para copiar)\n\n"
 				for _, a := range alertas {
-					msg += fmt.Sprintf("🎮 *%s*\n❌ `/remover %s`\n\n", a.TermoBusca, a.TermoBusca)
+					msg += fmt.Sprintf("🎮 <b>%s</b>\n❌ <code>/remover %s</code>\n\n", a.TermoBusca, a.TermoBusca)
 				}
 				EnviarMensagemDM(chatID, msg, "")
 			}
@@ -103,9 +107,11 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 
 		if strings.HasPrefix(texto, "/remover") {
 			termo := strings.TrimSpace(strings.Replace(texto, "/remover", "", 1))
+			termo = strings.ReplaceAll(termo, "<", "")
+			termo = strings.ReplaceAll(termo, ">", "")
 
 			if len(termo) < 2 {
-				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: `/remover God of War`", "")
+				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: <code>/remover God of War</code>", "")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -120,16 +126,16 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 				log.Println("ERRO RPC REMOVER:", err)
 				EnviarMensagemDM(chatID, "⚠️ Erro técnico ao remover. Tente mais tarde.", "")
 			} else if deletou {
-				EnviarMensagemDM(chatID, fmt.Sprintf("🗑 Alerta de *%s* removido com sucesso!", termo), "")
+				EnviarMensagemDM(chatID, fmt.Sprintf("🗑 Alerta de <b>%s</b> removido com sucesso!", termo), "")
 			} else {
-				EnviarMensagemDM(chatID, fmt.Sprintf("❌ Não encontrei nenhum alerta para: *%s*\n\nUse `/lista` para ver os nomes exatos.", termo), "")
+				EnviarMensagemDM(chatID, fmt.Sprintf("❌ Não encontrei nenhum alerta para: <b>%s</b>\n\nUse <code>/lista</code> para ver os nomes exatos.", termo), "")
 			}
 
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		EnviarMensagemDM(chatID, "❓ Não entendi.\nDigite `/start` para ver as opções.", "")
+		EnviarMensagemDM(chatID, "❓ Não entendi.\nDigite <code>/start</code> para ver as opções.", "")
 		w.WriteHeader(http.StatusOK)
 	}
 }
