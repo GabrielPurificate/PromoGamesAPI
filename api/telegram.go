@@ -21,6 +21,7 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 	payload["chat_id"] = chatID
 	payload["parse_mode"] = "HTML"
 
+	/* --- COMENTADO TEMPORARIAMENTE ---
 	keyboard := map[string]interface{}{
 		"inline_keyboard": [][]map[string]string{
 			{
@@ -33,6 +34,7 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 	}
 
 	payload["reply_markup"] = keyboard
+	----------------------------------- */
 
 	var method string
 	if imagemURL != "" {
