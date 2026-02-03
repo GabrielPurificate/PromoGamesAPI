@@ -35,6 +35,10 @@ func main() {
 		log.Fatal("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
 	}
 
+	if err := api.ConectarWhatsApp(); err != nil {
+		log.Println("Erro fatal WhatsApp:", err)
+	}
+
 	client := supabase.CreateClient(supabaseUrl, supabaseKey)
 
 	mux := http.NewServeMux()
@@ -55,6 +59,10 @@ func main() {
 			"valid": true,
 		})
 	}))
+
+	mux.HandleFunc("/whatsapp/qr", api.HandlerGetQR)
+
+	api.ListarCanais()
 
 	mux.HandleFunc("/gerar-preview", auth.MiddlewareJWT(api.HandlerGerarPreview(client)))
 
