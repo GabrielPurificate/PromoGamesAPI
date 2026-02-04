@@ -5,8 +5,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+)
+
+var (
+	rateLimitMap   = make(map[string][]time.Time)
+	rateLimitMutex sync.Mutex
 )
 
 func MiddlewareJWT(next http.HandlerFunc) http.HandlerFunc {
@@ -20,6 +27,12 @@ func MiddlewareJWT(next http.HandlerFunc) http.HandlerFunc {
 		if jwtSecret == "" {
 			fmt.Println("CRITICAL: SUPABASE_JWT_SECRET não configurado no ambiente")
 			http.Error(w, "Erro interno de configuração", http.StatusInternalServerError)
+			return
+		}
+
+		clientIP := getClientIP(r)
+		if !checkRateLimit(clientIP, 100, time.Minute) {
+			http.Error(w, "Rate limit excedido", http.StatusTooManyRequests)
 			return
 		}
 
@@ -45,4 +58,39 @@ func MiddlewareJWT(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+func getClientIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	return strings.Split(r.RemoteAddr, ":")[0]
+}
+
+func checkRateLimit(key string, maxRequests int, window time.Duration) bool {
+	rateLimitMutex.Lock()
+	defer rateLimitMutex.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-window)
+
+	if times, exists := rateLimitMap[key]; exists {
+		var validTimes []time.Time
+		for _, t := range times {
+			if t.After(cutoff) {
+				validTimes = append(validTimes, t)
+			}
+		}
+		rateLimitMap[key] = validTimes
+	}
+
+	if len(rateLimitMap[key]) >= maxRequests {
+		return false
+	}
+
+	rateLimitMap[key] = append(rateLimitMap[key], now)
+	return true
 }

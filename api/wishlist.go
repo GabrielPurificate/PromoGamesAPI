@@ -26,6 +26,8 @@ type ResultadoWishlist struct {
 
 func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024)
+
 		var update TelegramUpdate
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Erro json", http.StatusBadRequest)
@@ -56,7 +58,7 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 			termo = strings.ReplaceAll(termo, "<", "")
 			termo = strings.ReplaceAll(termo, ">", "")
 
-			if len(termo) < 3 {
+			if len(termo) < 3 || len(termo) > 100 {
 				EnviarMensagemDM(chatID, "❌ <b>Ops!</b> Digite o nome do jogo.\nExemplo: <code>/desejo Elden Ring</code>", "")
 				w.WriteHeader(http.StatusOK)
 				return
@@ -110,7 +112,7 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 			termo = strings.ReplaceAll(termo, "<", "")
 			termo = strings.ReplaceAll(termo, ">", "")
 
-			if len(termo) < 2 {
+			if len(termo) < 2 || len(termo) > 100 {
 				EnviarMensagemDM(chatID, "❌ Digite o nome para remover.\nEx: <code>/remover God of War</code>", "")
 				w.WriteHeader(http.StatusOK)
 				return
@@ -142,6 +144,12 @@ func HandlerWebhookTelegram(client *supabase.Client) http.HandlerFunc {
 
 func DispararWishlist(client *supabase.Client, tituloBusca, imagemURL, textoLegenda string) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic em DispararWishlist: %v", r)
+			}
+		}()
+
 		var interessados []ResultadoWishlist
 
 		err := client.DB.Rpc("buscar_interessados", map[string]interface{}{

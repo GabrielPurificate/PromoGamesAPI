@@ -60,15 +60,15 @@ func main() {
 		})
 	}))
 
-	mux.HandleFunc("/whatsapp/qr", api.HandlerGetQR)
-
-	api.ListarCanais()
+	mux.HandleFunc("/whatsapp/qr", auth.MiddlewareJWT(api.HandlerGetQR))
 
 	mux.HandleFunc("/gerar-preview", auth.MiddlewareJWT(api.HandlerGerarPreview(client)))
 
 	mux.HandleFunc("/webhook/telegram", api.HandlerWebhookTelegram(client))
 
 	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram(client)))
+
+	//api.ListarCanais()
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -77,7 +77,7 @@ func main() {
 		AllowCredentials: true,
 	}).Handler(mux)
 
-	fmt.Printf("🚀 Servidor rodando em http://localhost:%s\n", port)
+	fmt.Printf("Servidor rodando em http://localhost:%s\n", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatal(err)
 	}

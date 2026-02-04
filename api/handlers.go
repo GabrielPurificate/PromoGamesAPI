@@ -13,9 +13,16 @@ import (
 
 func HandlerGerarPreview(client *supabase.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024)
+
 		var req models.PromoRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Erro ao decodificar requisição: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "Erro ao decodificar requisição", http.StatusBadRequest)
+			return
+		}
+
+		if len(req.Nome) > 200 || len(req.Link) > 500 {
+			http.Error(w, "Dados inválidos: tamanho excedido", http.StatusBadRequest)
 			return
 		}
 
@@ -69,12 +76,19 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 2*1024*1024)
+
 		var dados struct {
 			Texto  string `json:"texto"`
 			Imagem string `json:"imagem"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&dados); err != nil {
 			http.Error(w, "Erro JSON", http.StatusBadRequest)
+			return
+		}
+
+		if len(dados.Texto) > 4096 || len(dados.Imagem) > 500 {
+			http.Error(w, "Dados muito grandes", http.StatusBadRequest)
 			return
 		}
 
@@ -85,13 +99,20 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 			return
 		}
 
-		go func() {
-			titulo, link := extrairDadosDoTexto(dados.Texto)
+		titulo, link := extrairDadosDoTexto(dados.Texto)
+		imagemCopy := dados.Imagem
+		textoCopy := dados.Texto
 
-			if titulo != "" && link != "" {
-				DispararWishlist(client, titulo, dados.Imagem, dados.Texto)
-			}
-		}()
+		if titulo != "" && link != "" {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Erro em DispararWishlist: %v\n", r)
+					}
+				}()
+				DispararWishlist(client, titulo, imagemCopy, textoCopy)
+			}()
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -128,14 +149,14 @@ func formatarMensagemZap(p models.PromoRequest) string {
 		msg += fmt.Sprintf("[%s]\n", strings.ToUpper(p.Loja))
 	}
 
-	msg += fmt.Sprintf("\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com")
+	msg += "\n🌐 <b>Mais ofertas em:</b> https://promogamesbr.com"
 
 	return msg
 }
 
 func gerarSlugSimples(nome string) string {
 	s := strings.ToLower(nome)
-	reg, _ := regexp.Compile("[^a-z0-9\\s-]+")
+	reg := regexp.MustCompile(`[^a-z0-9\s-]+`)
 	s = reg.ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, " ", "-")
 	return s

@@ -2,11 +2,15 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
+	"time"
 )
 
 func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
@@ -38,6 +42,9 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 
 	var method string
 	if imagemURL != "" {
+		if err := validarURLTelegram(imagemURL); err != nil {
+			return "", fmt.Errorf("URL de imagem inválida: %v", err)
+		}
 		method = "sendPhoto"
 		payload["photo"] = imagemURL
 		payload["caption"] = textoLegenda
@@ -46,23 +53,34 @@ func EnviarParaTelegram(imagemURL, textoLegenda string) (string, error) {
 		payload["text"] = textoLegenda
 	}
 
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/%s", token, method)
-	jsonPayload, _ := json.Marshal(payload)
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/%s", token, method)
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("erro ao serializar payload: %v", err)
+	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 1*1024*1024))
+	if err != nil {
+		return "", fmt.Errorf("erro ao ler resposta: %v", err)
+	}
 	respostaTelegram := string(bodyBytes)
 
 	if resp.StatusCode != http.StatusOK {
@@ -83,9 +101,11 @@ func EnviarMensagemDM(chatID int64, texto string, imagemURL string) error {
 	payload["parse_mode"] = "HTML"
 
 	var method string
-	var url string
 
 	if imagemURL != "" {
+		if err := validarURLTelegram(imagemURL); err != nil {
+			return fmt.Errorf("URL inválida: %v", err)
+		}
 		method = "sendPhoto"
 		payload["photo"] = imagemURL
 		payload["caption"] = texto
@@ -94,18 +114,58 @@ func EnviarMensagemDM(chatID int64, texto string, imagemURL string) error {
 		payload["text"] = texto
 	}
 
-	url = fmt.Sprintf("https://api.telegram.org/bot%s/%s", token, method)
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/%s", token, method)
 
-	jsonPayload, _ := json.Marshal(payload)
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("erro ao criar payload: %v", err)
+	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonPayload))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
+	_, _ = io.ReadAll(io.LimitReader(resp.Body, 1*1024*1024))
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("erro telegram status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func validarURLTelegram(urlStr string) error {
+	if urlStr == "" {
+		return nil
+	}
+
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("URL malformada: %v", err)
+	}
+
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+		return fmt.Errorf("esquema de URL não permitido: %s", parsedURL.Scheme)
+	}
+
+	host := strings.ToLower(parsedURL.Hostname())
+	proibidos := []string{"localhost", "127.0.0.1", "0.0.0.0", "169.254", "10.", "192.168"}
+	for _, p := range proibidos {
+		if strings.HasPrefix(host, p) || strings.Contains(host, p) {
+			return fmt.Errorf("acesso a rede privada bloqueado")
+		}
 	}
 
 	return nil
