@@ -112,6 +112,9 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 		return fmt.Errorf("imagem muito grande (máx 5MB)")
 	}
 
+	mimeType := http.DetectContentType(imgData)
+	fmt.Printf("WHATSAPP: Enviando imagem com MIME type detectado: %s\n", mimeType)
+
 	uploadResp, err := WAClient.Upload(ctx, imgData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("erro upload whatsapp: %v", err)
@@ -123,7 +126,7 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 			URL:           proto.String(uploadResp.URL),
 			DirectPath:    proto.String(uploadResp.DirectPath),
 			MediaKey:      uploadResp.MediaKey,
-			Mimetype:      proto.String("image/jpeg"),
+			Mimetype:      proto.String(mimeType),
 			FileEncSHA256: uploadResp.FileEncSHA256,
 			FileSHA256:    uploadResp.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(imgData))),
