@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -177,11 +177,16 @@ func validarURLSegura(urlStr string) error {
 		return fmt.Errorf("apenas URLs HTTPS são permitidas")
 	}
 
-	host := strings.ToLower(parsedURL.Hostname())
-	proibidos := []string{"localhost", "127.0.0.1", "0.0.0.0", "169.254", "10.", "172.16", "192.168"}
-	for _, p := range proibidos {
-		if strings.HasPrefix(host, p) || strings.Contains(host, p) {
-			return fmt.Errorf("acesso a rede privada não permitido")
+	hostname := parsedURL.Hostname()
+
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return fmt.Errorf("erro ao resolver DNS: %v", err)
+	}
+
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return fmt.Errorf("acesso a rede privada bloqueado: %s", ip.String())
 		}
 	}
 

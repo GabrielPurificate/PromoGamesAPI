@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/nedpals/supabase-go"
@@ -70,8 +71,15 @@ func main() {
 
 	//api.ListarCanais()
 
+	allowedOrigins := []string{"*"}
+	if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
+		allowedOrigins = strings.Split(envOrigins, ",")
+	} else {
+		log.Println("AVISO: CORS_ALLOWED_ORIGINS não definido. Permitindo todas as origens (*).")
+	}
+
 	handler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,

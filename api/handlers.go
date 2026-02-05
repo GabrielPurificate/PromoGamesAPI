@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -95,9 +96,27 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 		respostaTelegram, err := EnviarParaTelegram(dados.Imagem, dados.Texto)
 
 		if err != nil {
-			http.Error(w, "FALHA: "+err.Error()+" || RESPOSTA TELEGRAM: "+respostaTelegram, http.StatusInternalServerError)
+			fmt.Printf("ERRO HANDLER TELEGRAM: %v || RESPOSTA: %s\n", err, respostaTelegram)
+			http.Error(w, "Erro interno ao processar envio para o Telegram.", http.StatusInternalServerError)
 			return
 		}
+
+		go func() {
+			channelID := os.Getenv("WHATSAPP_CHANNEL_ID")
+			if channelID == "" {
+				fmt.Println("⚠️ WhatsApp pulado: WHATSAPP_CHANNEL_ID não configurado.")
+				return
+			}
+
+			textoZap := converterHTMLparaMarkdown(dados.Texto)
+
+			errZap := EnviarMensagemCanal(channelID, textoZap, dados.Imagem)
+			if errZap != nil {
+				fmt.Printf("❌ Erro ao enviar para WhatsApp: %v\n", errZap)
+			} else {
+				fmt.Println("✅ Enviado para WhatsApp com sucesso!")
+			}
+		}()
 
 		titulo, link := extrairDadosDoTexto(dados.Texto)
 		imagemCopy := dados.Imagem
@@ -117,9 +136,25 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "sucesso",
-			"msg":    "Telegram respondeu: " + respostaTelegram,
+			"msg":    "Promoção enviada! (Telegram: OK | Zap: Fila | Wishlist: Fila)",
 		})
 	}
+}
+
+func converterHTMLparaMarkdown(textoHTML string) string {
+	t := textoHTML
+	t = strings.ReplaceAll(t, "<b>", "*")
+	t = strings.ReplaceAll(t, "</b>", "*")
+	t = strings.ReplaceAll(t, "<strong>", "*")
+	t = strings.ReplaceAll(t, "</strong>", "*")
+	t = strings.ReplaceAll(t, "<i>", "_")
+	t = strings.ReplaceAll(t, "</i>", "_")
+	t = strings.ReplaceAll(t, "<em>", "_")
+	t = strings.ReplaceAll(t, "</em>", "_")
+	t = strings.ReplaceAll(t, "<code>", "```")
+	t = strings.ReplaceAll(t, "</code>", "```")
+
+	return t
 }
 
 func formatarMensagemZap(p models.PromoRequest) string {
