@@ -1,8 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"net"
 	"net/http"
@@ -12,6 +16,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/nfnt/resize"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -115,6 +120,22 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 	mimeType := http.DetectContentType(imgData)
 	fmt.Printf("WHATSAPP: Enviando imagem com MIME type detectado: %s\n", mimeType)
 
+	img, _, err := image.Decode(bytes.NewReader(imgData))
+	if err != nil {
+		return fmt.Errorf("erro ao decodificar imagem: %v", err)
+	}
+
+	bounds := img.Bounds()
+	width := uint32(bounds.Dx())
+	height := uint32(bounds.Dy())
+
+	thumbnail := resize.Thumbnail(100, 100, img, resize.Lanczos3)
+	var thumbnailBuf bytes.Buffer
+	if err := jpeg.Encode(&thumbnailBuf, thumbnail, &jpeg.Options{Quality: 50}); err != nil {
+		return fmt.Errorf("erro ao gerar thumbnail: %v", err)
+	}
+	thumbnailData := thumbnailBuf.Bytes()
+
 	uploadResp, err := WAClient.Upload(ctx, imgData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("erro upload whatsapp: %v", err)
@@ -130,6 +151,9 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 			FileEncSHA256: uploadResp.FileEncSHA256,
 			FileSHA256:    uploadResp.FileSHA256,
 			FileLength:    proto.Uint64(uint64(len(imgData))),
+			JPEGThumbnail: thumbnailData,
+			Width:         proto.Uint32(width),
+			Height:        proto.Uint32(height),
 		},
 	}
 
