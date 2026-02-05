@@ -136,7 +136,6 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 	}
 	thumbnailData := thumbnailBuf.Bytes()
 
-	// IMPORTANTE: Para newsletters, usar UploadNewsletter ao invés de Upload
 	uploadResp, err := WAClient.UploadNewsletter(ctx, imgData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("erro upload newsletter: %v", err)
@@ -150,15 +149,13 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 		finalMimeType = "image/jpeg"
 	}
 
-	// Para newsletters, alguns campos hash não são necessários
 	msg := &waE2E.Message{
 		ImageMessage: &waE2E.ImageMessage{
 			Caption:       proto.String(texto),
 			URL:           proto.String(uploadResp.URL),
 			DirectPath:    proto.String(uploadResp.DirectPath),
-			MediaKey:      uploadResp.MediaKey,
-			FileEncSHA256: uploadResp.FileEncSHA256,
-			FileLength:    proto.Uint64(uint64(len(imgData))),
+			FileSHA256:    uploadResp.FileSHA256,
+			FileLength:    proto.Uint64(uploadResp.FileLength),
 			Mimetype:      proto.String(finalMimeType),
 			Height:        proto.Uint32(height),
 			Width:         proto.Uint32(width),
@@ -166,9 +163,11 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 		},
 	}
 
-	fmt.Printf("WHATSAPP: Enviando para newsletter (tamanho: %d bytes)...\n", len(imgData))
+	fmt.Printf("WHATSAPP: Enviando para newsletter (Handle: %s, tamanho: %d bytes)...\n", uploadResp.Handle, len(imgData))
 
-	_, err = WAClient.SendMessage(ctx, jid, msg)
+	_, err = WAClient.SendMessage(ctx, jid, msg, whatsmeow.SendRequestExtra{
+		MediaHandle: uploadResp.Handle,
+	})
 	return err
 }
 
