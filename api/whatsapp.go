@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -110,20 +109,20 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 	}
 	defer resp.Body.Close()
 
-	imgData, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
+	imgData, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return fmt.Errorf("erro ao ler imagem: %v", err)
 	}
-	if len(imgData) >= 5*1024*1024 {
-		return fmt.Errorf("imagem muito grande (máx 5MB)")
+	if len(imgData) >= 10*1024*1024 {
+		return fmt.Errorf("imagem muito grande (máx 10MB)")
 	}
 
 	mimeType := http.DetectContentType(imgData)
-	fmt.Printf("WHATSAPP: Enviando imagem com MIME type detectado: %s\n", mimeType)
+	fmt.Printf("WHATSAPP: Enviando imagem com MIME type: %s\n", mimeType)
 
 	img, _, err := image.Decode(bytes.NewReader(imgData))
 	if err != nil {
-		return fmt.Errorf("erro ao decodificar imagem: %v", err)
+		return fmt.Errorf("erro ao decodificar imagem para thumbnail: %v", err)
 	}
 
 	bounds := img.Bounds()
@@ -137,41 +136,37 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 	}
 	thumbnailData := thumbnailBuf.Bytes()
 
-	uploadResp, err := WAClient.Upload(ctx, imgData, whatsmeow.MediaImage)
+	// IMPORTANTE: Para newsletters, usar UploadNewsletter ao invés de Upload
+	uploadResp, err := WAClient.UploadNewsletter(ctx, imgData, whatsmeow.MediaImage)
 	if err != nil {
-		return fmt.Errorf("erro upload whatsapp: %v", err)
+		return fmt.Errorf("erro upload newsletter: %v", err)
 	}
 
 	finalMimeType := mimeType
-	if mimeType == "image/jpeg" || mimeType == "image/jpg" {
+	if mimeType == "image/jpg" {
 		finalMimeType = "image/jpeg"
-	} else if mimeType == "image/png" {
-		finalMimeType = "image/png"
+	}
+	if finalMimeType != "image/png" && finalMimeType != "image/jpeg" {
+		finalMimeType = "image/jpeg"
 	}
 
-	imgHash := sha256.Sum256(imgData)
-
+	// Para newsletters, alguns campos hash não são necessários
 	msg := &waE2E.Message{
 		ImageMessage: &waE2E.ImageMessage{
-			Caption:           proto.String(texto),
-			URL:               proto.String(uploadResp.URL),
-			DirectPath:        proto.String(uploadResp.DirectPath),
-			MediaKey:          uploadResp.MediaKey,
-			Mimetype:          proto.String(finalMimeType),
-			FileEncSHA256:     uploadResp.FileEncSHA256,
-			FileSHA256:        uploadResp.FileSHA256,
-			FileLength:        proto.Uint64(uint64(len(imgData))),
-			Height:            proto.Uint32(height),
-			Width:             proto.Uint32(width),
-			JPEGThumbnail:     thumbnailData,
-			MediaKeyTimestamp: proto.Int64(time.Now().Unix()),
-			FirstScanSidecar:  imgHash[:],
-			FirstScanLength:   proto.Uint32(uint32(len(imgData))),
+			Caption:       proto.String(texto),
+			URL:           proto.String(uploadResp.URL),
+			DirectPath:    proto.String(uploadResp.DirectPath),
+			MediaKey:      uploadResp.MediaKey,
+			FileEncSHA256: uploadResp.FileEncSHA256,
+			FileLength:    proto.Uint64(uint64(len(imgData))),
+			Mimetype:      proto.String(finalMimeType),
+			Height:        proto.Uint32(height),
+			Width:         proto.Uint32(width),
+			JPEGThumbnail: thumbnailData,
 		},
 	}
 
-	fmt.Printf("WHATSAPP: URL=%s, DirectPath=%s, FileLength=%d, MimeType=%s, ThumbnailSize=%d\n",
-		uploadResp.URL, uploadResp.DirectPath, len(imgData), finalMimeType, len(thumbnailData))
+	fmt.Printf("WHATSAPP: Enviando para newsletter (tamanho: %d bytes)...\n", len(imgData))
 
 	_, err = WAClient.SendMessage(ctx, jid, msg)
 	return err
