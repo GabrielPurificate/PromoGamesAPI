@@ -141,21 +141,34 @@ func EnviarMensagemCanal(newsletterID string, texto string, imagemURL string) er
 		return fmt.Errorf("erro upload whatsapp: %v", err)
 	}
 
+	// Corrigir MIME type se necessário
+	finalMimeType := mimeType
+	if mimeType == "image/jpeg" || mimeType == "image/jpg" {
+		finalMimeType = "image/jpeg"
+	} else if mimeType == "image/png" {
+		finalMimeType = "image/png"
+	}
+
+	// Para newsletters, usar ImageMessage com todos os campos necessários
 	msg := &waE2E.Message{
 		ImageMessage: &waE2E.ImageMessage{
-			Caption:       proto.String(texto),
-			URL:           proto.String(uploadResp.URL),
-			DirectPath:    proto.String(uploadResp.DirectPath),
-			MediaKey:      uploadResp.MediaKey,
-			Mimetype:      proto.String(mimeType),
-			FileEncSHA256: uploadResp.FileEncSHA256,
-			FileSHA256:    uploadResp.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(imgData))),
-			JPEGThumbnail: thumbnailData,
-			Width:         proto.Uint32(width),
-			Height:        proto.Uint32(height),
+			Caption:           proto.String(texto),
+			URL:               proto.String(uploadResp.URL),
+			DirectPath:        proto.String(uploadResp.DirectPath),
+			MediaKey:          uploadResp.MediaKey,
+			Mimetype:          proto.String(finalMimeType),
+			FileEncSHA256:     uploadResp.FileEncSHA256,
+			FileSHA256:        uploadResp.FileSHA256,
+			FileLength:        proto.Uint64(uint64(len(imgData))),
+			JPEGThumbnail:     thumbnailData,
+			Width:             proto.Uint32(width),
+			Height:            proto.Uint32(height),
+			MediaKeyTimestamp: proto.Int64(time.Now().Unix()),
 		},
 	}
+
+	fmt.Printf("WHATSAPP: URL=%s, DirectPath=%s, FileLength=%d, MimeType=%s\n",
+		uploadResp.URL, uploadResp.DirectPath, len(imgData), finalMimeType)
 
 	_, err = WAClient.SendMessage(ctx, jid, msg)
 	return err
