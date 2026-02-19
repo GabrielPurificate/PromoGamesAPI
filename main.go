@@ -69,6 +69,10 @@ func main() {
 
 	mux.HandleFunc("/enviar-telegram", auth.MiddlewareJWT(api.HandlerEnviarTelegram(client)))
 
+	mux.HandleFunc("/buscar-jogos", auth.MiddlewareJWT(api.HandlerBuscarJogos(client)))
+	mux.HandleFunc("/cupons-recentes", auth.MiddlewareJWT(api.HandlerCuponsRecentes(client)))
+	mux.HandleFunc("/jogos-populares", auth.MiddlewareJWT(api.HandlerJogosPopulares(client)))
+
 	//api.ListarCanais()
 
 	allowedOrigins := []string{"*"}

@@ -58,6 +58,24 @@ func HandlerGerarPreview(client *supabase.Client) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
+
+		if req.Cupom != "" {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Erro ao salvar cupom: %v\n", r)
+					}
+				}()
+				payload := map[string]interface{}{
+					"cupom": req.Cupom,
+				}
+				var result interface{}
+				errCupom := client.DB.From("cupons_recentes").Insert(payload).Execute(&result)
+				if errCupom != nil {
+					fmt.Printf("Erro ao salvar cupom recente: %v\n", errCupom)
+				}
+			}()
+		}
 	}
 }
 
@@ -133,6 +151,25 @@ func HandlerEnviarTelegram(client *supabase.Client) http.HandlerFunc {
 			}()
 		}
 
+		if titulo != "" {
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Erro ao incrementar contagem: %v\n", r)
+					}
+				}()
+				slugJogo := gerarSlugSimples(titulo)
+				var result interface{}
+				errContagem := client.DB.Rpc("incrementar_contagem_promocao", map[string]interface{}{
+					"p_slug": slugJogo,
+					"p_nome": titulo,
+				}).Execute(&result)
+				if errContagem != nil {
+					fmt.Printf("Erro ao incrementar contagem de promoção: %v\n", errContagem)
+				}
+			}()
+		}
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "sucesso",
@@ -195,6 +232,118 @@ func gerarSlugSimples(nome string) string {
 	s = reg.ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, " ", "-")
 	return s
+}
+
+func HandlerBuscarJogos(client *supabase.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		termo := strings.TrimSpace(r.URL.Query().Get("q"))
+		if len(termo) < 2 || len(termo) > 100 {
+			http.Error(w, "Parâmetro 'q' deve ter entre 2 e 100 caracteres", http.StatusBadRequest)
+			return
+		}
+
+		var resultados []models.JogoBusca
+
+		slugBusca := strings.ToLower(strings.TrimSpace(termo))
+		slugBusca = strings.ReplaceAll(slugBusca, " ", "*")
+
+		err := client.DB.From("Jogos").
+			Select("slug", "image_url").
+			Limit(10).
+			Ilike("slug", "*"+slugBusca+"*").
+			Execute(&resultados)
+
+		if err != nil {
+			fmt.Printf("Erro ao buscar jogos: %v\n", err)
+			http.Error(w, "Erro ao buscar jogos", http.StatusInternalServerError)
+			return
+		}
+
+		if resultados == nil {
+			resultados = []models.JogoBusca{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resultados)
+	}
+}
+
+func HandlerCuponsRecentes(client *supabase.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var resultados []models.CupomRecente
+
+		err := client.DB.From("cupons_recentes").
+			Select("cupom", "usado_em").
+			OrderBy("usado_em", "desc").
+			Limit(20).
+			Execute(&resultados)
+
+		if err != nil {
+			fmt.Printf("Erro ao buscar cupons recentes: %v\n", err)
+			http.Error(w, "Erro ao buscar cupons recentes", http.StatusInternalServerError)
+			return
+		}
+
+		vistos := make(map[string]bool)
+		var unicos []models.CupomRecente
+		for _, c := range resultados {
+			cupomLower := strings.ToLower(strings.TrimSpace(c.Cupom))
+			if !vistos[cupomLower] {
+				vistos[cupomLower] = true
+				unicos = append(unicos, c)
+				if len(unicos) >= 3 {
+					break
+				}
+			}
+		}
+
+		if unicos == nil {
+			unicos = []models.CupomRecente{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(unicos)
+	}
+}
+
+func HandlerJogosPopulares(client *supabase.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var resultados []models.JogoPopular
+
+		err := client.DB.From("contagem_promocoes").
+			Select("jogo_slug", "jogo_nome", "total_envios", "ultimo_envio").
+			OrderBy("total_envios", "desc").
+			Limit(10).
+			Execute(&resultados)
+
+		if err != nil {
+			fmt.Printf("Erro ao buscar jogos populares: %v\n", err)
+			http.Error(w, "Erro ao buscar jogos populares", http.StatusInternalServerError)
+			return
+		}
+
+		if resultados == nil {
+			resultados = []models.JogoPopular{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resultados)
+	}
 }
 
 func extrairDadosDoTexto(textoHTML string) (string, string) {
